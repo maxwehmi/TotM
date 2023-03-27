@@ -1,0 +1,63 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color:#48515B; 
+  font-family: 'Poppins'; 
+  color:white; 
+ }
+.text {
+  text-align:center;
+  align-items: center;
+  height: 50vh;
+  padding-bottom:0.67em
+}
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+.content {
+  padding: 20px;
+  max-width: 70%;
+  width: auto;
+  text-align: center;
+}
+.button {
+  color: white;
+  border: 0.094em solid white;
+  border-radius: 0.813em;
+  padding: 0.4em;
+  text-decoration: none;
+}
+.button:hover {
+  color: #48515B;
+  background-color: white;
+}
+.github {
+  color: #5e6771;
+  position: absolute;
+  top: 1.375em;
+  right: 1.375em;
+  width: 1.875em;
+  height: 1.875em;
+}
+.github:hover {
+  color: white;
+}
+.links {
+  color: #5e6771;
+  position: fixed; 
+  left: 50%; 
+  transform: translate(-50%,0%); 
+  font-size: 0.625em; 
+  color: #5e6771; 
+  bottom: 1.375em;
+}
+.link {
+  color: #5e6771;
+  text-decoration: none;
+}
+.link:hover {
+  color: white
+}

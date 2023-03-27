@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+
+{% block title %} 
+TotM Unsub
+{% endblock %} 
+
+
+{% block body %} 
+<h1>Do you want to unsubscribe from TotM?</h1>
+<p>Just enter your username here and we will remove it from our database:</p>
+<div class="form">
+    <form action="/unsub" method="UNSUB">
+        <input type="text" name="content" id="content">
+        <input type="submit" value="Unsubscribe">
+    </form>
+</div>
+<p style="color:green">You succesfully unsubscribed!</p>
+<p style="color:red">Some error occured, please try again or inform the manager of the website.</p>
+{% endblock %}

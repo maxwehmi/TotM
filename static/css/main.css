@@ -1,7 +1,7 @@
 body {
   margin: 0;
   padding: 0;
-  background-color:#48515B; 
+  background-color:#206329; 
   font-family: 'Poppins'; 
   color:white; 
  }
@@ -60,4 +60,23 @@ body {
 }
 .link:hover {
   color: white
+}
+.unsubField {
+  width:70%;
+  border: 0.094em solid black;
+  background-color:hsl(128, 51%, 46%); 
+  border-radius: 0.813em;
+  padding: 0.4em;
+}
+.unsubButton {
+  border: 0.094em solid black;
+  background-color:hsl(128, 51%, 46%); 
+  border-radius: 0.813em;
+  padding: 0.4em;
+}
+.unsubButton:hover {
+  border: 0.094em solid red;
+  background-color:red; 
+  border-radius: 0.813em;
+  padding: 0.4em;
 }

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for
+from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -31,9 +31,12 @@ def redirect():
     return render_template('redirect.html')
 
 
-@app.route('/unsub', methods= ['CALL','UNSUB','SUCCESS','ERROR'])
+@app.route('/unsub', methods=['POST','GET'])
 def unsub():
-    return render_template('unsub.html')
+    if request.method == 'POST':
+        return render_template('unsub.html', call="USER_NOT_FOUND")
+    else:
+        return render_template('unsub.html')
 
 
 if __name__ == "__main__":

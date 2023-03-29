@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+<!--This site is just for testing the database-->
+
+{% block title %} 
+TotM TEST - showAll
+{% endblock %} 
+
+
+{% block body %} 
+{% for user in users %}
+<table>
+    <tr>
+        <td>{{ user.username }}</td>
+        <td>{{ user.token_expiresAt }}</td>
+    </tr>
+</table>
+        {% endfor %}
+{% endblock %}

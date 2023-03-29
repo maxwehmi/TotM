@@ -5,10 +5,23 @@
 TotM Finished
 {% endblock %} 
 
-
 {% block body %}
-<h1>Done! You will now receive a "Top of the Month" playlist at the end of every month.</h1>
-<p>You can find the playlists on your Spotify profile. They are called "TotM - MONTH YEAR", where MONTH and YEAR represent to which month the playlist belongs. 
-  You can delete or edit the playlists in any way you want. The app will not interact with created playlists. But be careful: Once you deleted a playlist, there 
-  is no way to get it back!</p>
+  {% if call == "SUCC" %} 
+    <h1>Done! You will now receive a "Top of the Month" playlist at the end of every month.</h1>
+    <p>You can find the playlists on your Spotify profile. They are called "TotM - MONTH YEAR", where MONTH and YEAR represent to which month the playlist belongs. 
+      You can delete or edit the playlists in any way you want. The app will not interact with created playlists. But be careful: Once you deleted a playlist, there 
+      is no way to get it back!</p>
+   {% endif %}
+   
+   {% if call == "ALREADY_IN_DB" %} 
+   <h1>You are already signed up for TotM!</h1>
+   <p>You can find the playlists on your Spotify profile. They are called "TotM - MONTH YEAR", where MONTH and YEAR represent to which month the playlist belongs. 
+     You can delete or edit the playlists in any way you want. The app will not interact with created playlists. But be careful: Once you deleted a playlist, there 
+     is no way to get it back!</p>
+     {% endif %}
+
+   {% if call == "ERROR" %} 
+   <h1 style="color:red">There was an error while retrieving your data!</h1>
+   <p style="color:red">Please try again or inform the manager of the website.</p>
+   {% endif %}
 {% endblock %}

@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth
+from threading import Timer
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -20,7 +21,7 @@ def create_spotify_oauth():
             client_id=config.client_id,
             client_secret=config.client_secret,
             redirect_uri=url_for('redirectPage', _external=True),
-            scope="playlist-modify-public,playlist-modify-private,user-top-read") # public necessary?
+            scope="playlist-modify-private,user-top-read") # public not necessary for current version, but in future versions, the scope might have to be adjusted
 
 
 class User(db.Model):
@@ -62,7 +63,7 @@ def redirectPage():
     sp = spotipy.Spotify(auth=token_info['access_token'])
     current_user = sp.current_user()
     user_name = current_user['display_name']
-    user = User.query.get(user_name)
+    user = User.query.get(user_name) # legacy: should be Session.get()
 
     if user:
         return render_template('redirect.html', call="ALREADY_IN_DB")
@@ -86,7 +87,7 @@ def redirectPage():
 def unsub():
     if request.method == 'POST':
         username = request.form['content']
-        user = User.query.get(username)
+        user = User.query.get(username) # legacy: should be Session.get()
         if not user:
             return render_template('unsub.html',call="USER_NOT_FOUND")
         
@@ -100,25 +101,35 @@ def unsub():
         return render_template('unsub.html')
     
 
+# to be removed before deployment
 @app.route('/showAll')
 def showAll():
     users = User.query.order_by(User.username).all()
     return render_template('showAll.html', users=users)
     
 
-# just for testing
-@app.route('/generate')
-def generate():
-    generate_all()
-    return "generating"
-    
-
-def generate_all(): # future attributes: datetime
-    year = datetime.utcnow().date().year
-    month = datetime.utcnow().date().month
-    users = User.query.order_by(User.username).all()
-    TotM.create_all(users,year,month)
+def generate_all():
+    with app.app_context():
+        year = datetime.utcnow().date().year
+        month = datetime.utcnow().date().month
+        users = User.query.order_by(User.username).all()
+        TotM.create_all(users,year,month)
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=4000)
+    # dates are currently hardcoded, this will be solved in a future version with multiple threads
+    now = datetime.now()
+
+    end_of_april = datetime(2023, 4, 30, 23, 0, 0, 0)
+    delay_april = (end_of_april - now).total_seconds()
+    print(delay_april)
+    t = Timer(delay_april, generate_all)
+    t.start()
+
+    end_of_may = datetime(2023, 5, 31, 23, 0, 0, 0)
+    delay_may = (end_of_may - now).total_seconds()
+    print(delay_may)
+    t2 = Timer(delay_may, generate_all)
+    t2.start()
+
+    app.run(debug=False, port=4000) # debug must be False for Timer to work properly

@@ -3,3 +3,4 @@ __pycache__/
 instance/
 config.py
 .cache
+.cacheOld

@@ -1,3 +1,6 @@
+import spotipy
+import calendar
+
 def get_tracks(sp):
     response = sp.current_user_top_tracks(limit=20,offset=0,time_range='short_term')
     return response
@@ -29,3 +32,19 @@ def create_TotM(sp, name, description):
     uris = extract_uris(resp)
     playlist_id = create_playlist(sp, name, description)
     add_tracks(sp, playlist_id, uris)
+
+
+def create_all(users,year,month_num):
+    year_short = year % 100
+    month = calendar.month_name[month_num]
+    month_short = calendar.month_abbr[month_num]
+
+    description = "These are your 20 Top of the Month tracks for " + month + " " + str(year) + "!"
+    
+    for user in users:
+        print("generating: " + user.username)
+        try:
+            sp = spotipy.Spotify(user.token)
+            create_TotM(sp, "TotM - " + month_short + " " + str(year_short), description)
+        except:
+            print("ERROR")

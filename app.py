@@ -104,6 +104,20 @@ def unsub():
 def showAll():
     users = User.query.order_by(User.username).all()
     return render_template('showAll.html', users=users)
+    
+
+# just for testing
+@app.route('/generate')
+def generate():
+    generate_all()
+    return "generating"
+    
+
+def generate_all(): # future attributes: datetime
+    year = datetime.utcnow().date().year
+    month = datetime.utcnow().date().month
+    users = User.query.order_by(User.username).all()
+    TotM.create_all(users,year,month)
 
 
 if __name__ == "__main__":

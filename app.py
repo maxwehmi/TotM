@@ -63,7 +63,7 @@ def redirectPage():
     sp = spotipy.Spotify(auth=token_info['access_token'])
     current_user = sp.current_user()
     user_name = current_user['display_name']
-    user = User.query.get(user_name) # legacy: should be Session.get()
+    user = db.session.get(User,user_name) 
 
     if user:
         return render_template('redirect.html', call="ALREADY_IN_DB")
@@ -87,7 +87,7 @@ def redirectPage():
 def unsub():
     if request.method == 'POST':
         username = request.form['content']
-        user = User.query.get(username) # legacy: should be Session.get()
+        user = db.session.get(User,username) 
         if not user:
             return render_template('unsub.html',call="USER_NOT_FOUND")
         
@@ -105,6 +105,10 @@ def unsub():
 @app.route('/showAll')
 def showAll():
     users = User.query.order_by(User.username).all()
+    year = datetime.utcnow().date().year
+    month = datetime.utcnow().date().month
+    sp_oauth = create_spotify_oauth()
+    TotM.create_all(users,year,month,db,sp_oauth)
     return render_template('showAll.html', users=users)
     
 
@@ -113,11 +117,13 @@ def generate_all():
         year = datetime.utcnow().date().year
         month = datetime.utcnow().date().month
         users = User.query.order_by(User.username).all()
-        TotM.create_all(users,year,month)
+        sp_oauth = create_spotify_oauth()
+        TotM.create_all(users,year,month,db,sp_oauth)
 
 
 if __name__ == "__main__":
     # dates are currently hardcoded, this will be solved in a future version with multiple threads
+    """
     now = datetime.now()
 
     end_of_april = datetime(2023, 4, 30, 23, 0, 0, 0)
@@ -131,5 +137,6 @@ if __name__ == "__main__":
     print(delay_may)
     t2 = Timer(delay_may, generate_all)
     t2.start()
+    """
 
-    app.run(debug=False, port=4000) # debug must be False for Timer to work properly
+    app.run(debug=True, port=4000) # debug must be False for Timer to work properly

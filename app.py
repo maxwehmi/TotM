@@ -1,3 +1,4 @@
+import time
 import config
 import TotM
 import spotipy
@@ -21,14 +22,41 @@ def create_spotify_oauth():
             client_id=config.client_id,
             client_secret=config.client_secret,
             redirect_uri=url_for('redirectPage', _external=True),
-            scope="playlist-modify-private,user-top-read") # public not necessary for current version, but in future versions, the scope might have to be adjusted
+            scope="playlist-modify-private,playlist-modify-public,user-top-read")
+
+
+def create_all(users,year,month_num,db,sp_oauth):
+    for user in users:
+        print("generating: " + user.username)
+
+        now = int(time.time())
+        expired = user.token_expiresAt - now < 60
+        if expired:
+            try:
+                # should sp = spotipy.Spotify(user.token) be used instead of sp_oauth?
+                token_info = sp_oauth.refresh_access_token(user.refresh_token)
+
+                user.token=token_info['access_token']
+                user.token_expiresAt=token_info['expires_at']
+                user.refresh_token=token_info['refresh_token']
+
+                db.session.commit()
+            except:
+                print("ERROR: expired")
+
+        try:
+            sp = spotipy.Spotify(user.token)
+            TotM.create_TotM(sp, year, month_num)
+        except:
+            print("ERROR: something else")
+
 
 
 class User(db.Model):
     username = db.Column(db.String(30), unique=True, primary_key=True)
     token = db.Column(db.String(300), nullable=False)
     token_expiresAt = db.Column(db.Integer, nullable=False)
-    refresh_token = db.Column(db.String(300), nullable=False)    
+    refresh_token = db.Column(db.String(300), nullable=False)
 
     def __repr__(self):
         username = '{username: %r}' % self.username
@@ -53,17 +81,21 @@ def imprint():
 
 @app.route('/redirect')
 def redirectPage():
-    sp_oauth = create_spotify_oauth()
     code = request.args.get('code')
 
     if not code:
         return render_template('redirect.html', call="ERROR")
 
-    token_info = sp_oauth.get_access_token(code, as_dict=True) # find out, how to do it with as_dict=False
-    sp = spotipy.Spotify(auth=token_info['access_token'])
+    sp_oauth = create_spotify_oauth()
+    sp_oauth.get_access_token(code, as_dict=False)
+    token_info = sp_oauth.get_cached_token()
+    print(token_info)
+
+    sp = spotipy.Spotify(token_info['access_token'])
     current_user = sp.current_user()
     user_name = current_user['display_name']
     user = db.session.get(User,user_name) 
+    print(user_name)
 
     if user:
         return render_template('redirect.html', call="ALREADY_IN_DB")
@@ -105,10 +137,7 @@ def unsub():
 @app.route('/showAll')
 def showAll():
     users = User.query.order_by(User.username).all()
-    year = datetime.utcnow().date().year
-    month = datetime.utcnow().date().month
-    sp_oauth = create_spotify_oauth()
-    TotM.create_all(users,year,month,db,sp_oauth)
+    generate_all()
     return render_template('showAll.html', users=users)
     
 
@@ -118,7 +147,7 @@ def generate_all():
         month = datetime.utcnow().date().month
         users = User.query.order_by(User.username).all()
         sp_oauth = create_spotify_oauth()
-        TotM.create_all(users,year,month,db,sp_oauth)
+        create_all(users,year,month,db,sp_oauth)
 
 
 if __name__ == "__main__":

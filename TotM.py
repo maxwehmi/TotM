@@ -28,7 +28,7 @@ def add_description(sp, playlist_id, year, month_num):
     user = sp.current_user()
     user_name = user['id']
     description='These are your 20 Top of the Month tracks for ' + month + ' ' + str(year) + '!'
-    sp.user_playlist_change_details(user_name, playlist_id, name=None, public=None, collaborative=None, description=description)
+    sp.user_playlist_change_details(user_name, playlist_id, description=description)
 
 
 def add_tracks(sp, playlist_id, tracks):

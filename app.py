@@ -1,3 +1,5 @@
+import random
+import string
 import time
 import config
 import TotM
@@ -17,23 +19,25 @@ with app.app_context():
     db.create_all()
 
 
-def create_spotify_oauth():
+def create_spotify_oauth(cache):
     return SpotifyOAuth(
             client_id=config.client_id,
             client_secret=config.client_secret,
             redirect_uri=url_for('redirectPage', _external=True),
-            scope="playlist-modify-private,playlist-modify-public,user-top-read")
+            scope="playlist-modify-private,user-top-read",
+            cache_path=cache)
 
 
-def create_all(users,year,month_num,db,sp_oauth):
+def create_all(users,year,month_num):
     for user in users:
         print("generating: " + user.username)
+
+        sp_oauth = create_spotify_oauth(user.cache)
 
         now = int(time.time())
         expired = user.token_expiresAt - now < 60
         if expired:
             try:
-                # should sp = spotipy.Spotify(user.token) be used instead of sp_oauth?
                 token_info = sp_oauth.refresh_access_token(user.refresh_token)
 
                 user.token=token_info['access_token']
@@ -57,6 +61,7 @@ class User(db.Model):
     token = db.Column(db.String(300), nullable=False)
     token_expiresAt = db.Column(db.Integer, nullable=False)
     refresh_token = db.Column(db.String(300), nullable=False)
+    cache = db.Column(db.String(32), nullable=False)
 
     def __repr__(self):
         username = '{username: %r}' % self.username
@@ -69,7 +74,7 @@ class User(db.Model):
 
 @app.route('/') 
 def index():    
-    sp_oauth_global = create_spotify_oauth()
+    sp_oauth_global = create_spotify_oauth(config.cache)
     auth_url = sp_oauth_global.get_authorize_url()
     return render_template('index.html', link=auth_url)
 
@@ -86,7 +91,8 @@ def redirectPage():
     if not code:
         return render_template('redirect.html', call="ERROR")
 
-    sp_oauth = create_spotify_oauth()
+    cache_file = "".join(random.choices(string.ascii_letters + string.digits, k=32)) # use user id instead for better handling?
+    sp_oauth = create_spotify_oauth("cache/" + cache_file)
     sp_oauth.get_access_token(code, as_dict=False)
     token_info = sp_oauth.get_cached_token()
     print(token_info)
@@ -104,7 +110,8 @@ def redirectPage():
         username=user_name,
         token=token_info['access_token'],
         token_expiresAt=token_info['expires_at'],
-        refresh_token=token_info['refresh_token'])
+        refresh_token=token_info['refresh_token'],
+        cache=cache_file)
 
     try:
         db.session.add(new_user)
@@ -146,8 +153,7 @@ def generate_all():
         year = datetime.utcnow().date().year
         month = datetime.utcnow().date().month
         users = User.query.order_by(User.username).all()
-        sp_oauth = create_spotify_oauth()
-        create_all(users,year,month,db,sp_oauth)
+        create_all(users,year,month)
 
 
 if __name__ == "__main__":

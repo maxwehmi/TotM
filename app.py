@@ -8,7 +8,9 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth
 from threading import Timer
+import logging
 
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO, filename='TotM.log', filemode='w')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.secret_key = config.secret_Key
@@ -28,33 +30,43 @@ def create_spotify_oauth(cache):
 
 
 def create_all(users,year,month_num):
+    logging.info('Start generating all TotM playlists.')
     for user in users:
-        print("generating: " + user.userid)
+        logging.info('Start generating playlist for ' + user.userid + '.')
 
         sp_oauth = create_spotify_oauth(config.tmp_cache)
-
         now = int(time.time())
         expired = user.token_expiresAt - now < 60
+
         if expired:
+            logging.info('Acces token was expired, trying to refresh access token...')
             try:
                 token_info = sp_oauth.refresh_access_token(user.refresh_token)
+
+                logging.info('Got new access token, trying to add it to the database...')
 
                 user.token=token_info['access_token']
                 user.token_expiresAt=token_info['expires_at']
                 user.refresh_token=token_info['refresh_token']
 
                 db.session.commit()
+
+                logging.info('Successfully added the new token to the database.')
             except:
-                print("ERROR: expired")
+                logging.error('Something went wrong while trying to get the new access token.')
 
         try:
+            logging.info('Generating playlist...')
             sp = spotipy.Spotify(user.token)
             TotM.create_TotM(sp, year, month_num)
+            logging.info('Done!')
         except:
-            print("ERROR: something else")
+            logging.error('Something went wrong while creating the playlist')
 
         if os.path.isfile(config.tmp_cache):
             os.remove(config.tmp_cache)
+
+    logging.info('finished generating all TotM playlists')
 
 
 class User(db.Model):
@@ -89,21 +101,27 @@ def redirectPage():
     code = request.args.get('code')
 
     if not code:
+        logging.warning('No code found in URL.')
         return render_template('redirect.html', call="ERROR")
+    
+    logging.info('Code found in URL, trying to process it...')
 
     sp_oauth = create_spotify_oauth(config.tmp_cache)
     sp_oauth.get_access_token(code, as_dict=False)
     token_info = sp_oauth.get_cached_token()
-    print(token_info)
 
     sp = spotipy.Spotify(token_info['access_token'])
     current_user = sp.current_user()
     user_id = current_user['id']
     user = db.session.get(User,user_id) 
-    print(user_id)
+
+    logging.info('Got the token for ' + user_id + '. Checking if user is already in the database...')
 
     if user:
+        logging.info('User already in database.')
         return render_template('redirect.html', call="ALREADY_IN_DB")
+
+    logging.info('User not in database. Trying to add user...')
 
     new_user = User(
         userid=user_id,
@@ -116,8 +134,10 @@ def redirectPage():
     try:
         db.session.add(new_user)
         db.session.commit()
+        logging.info('Successfully added new user to database.')
         return render_template('redirect.html', call="SUCC")
     except:
+        logging.info('There was an error adding the user to the database.')
         return render_template('redirect.html', call="ERROR")
     
 
@@ -127,14 +147,22 @@ def unsub():
     if request.method == 'POST':
         userid = request.form['content']
         user = db.session.get(User,userid) 
+
+        logging.info('Trying to unsubscribe ' + userid + '.')
+
         if not user:
+            logging.warning('User not found in database.')
             return render_template('unsub.html',call="USER_NOT_FOUND")
         
+        logging.info('User found in database. Trying to remove user...')
+
         try:
             db.session.delete(user)
             db.session.commit()
+            logging.info('Successfully removed user from databse.')
             return render_template('unsub.html',call="SUCC")
         except:
+            logging.info('There was an error removing the user from the database.')
             return render_template('unsub.html',call="ERROR")
     else:
         return render_template('unsub.html')
@@ -144,7 +172,7 @@ def unsub():
 @app.route('/showAll')
 def showAll():
     users = User.query.order_by(User.userid).all()
-    generate_all()
+    #generate_all()
     return render_template('showAll.html', users=users)
     
 

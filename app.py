@@ -1,5 +1,4 @@
-import random
-import string
+import os
 import time
 import config
 import TotM
@@ -30,9 +29,9 @@ def create_spotify_oauth(cache):
 
 def create_all(users,year,month_num):
     for user in users:
-        print("generating: " + user.username)
+        print("generating: " + user.userid)
 
-        sp_oauth = create_spotify_oauth(user.cache)
+        sp_oauth = create_spotify_oauth(config.tmp_cache)
 
         now = int(time.time())
         expired = user.token_expiresAt - now < 60
@@ -54,27 +53,28 @@ def create_all(users,year,month_num):
         except:
             print("ERROR: something else")
 
+        if os.path.isfile(config.tmp_cache):
+            os.remove(config.tmp_cache)
 
 
 class User(db.Model):
-    username = db.Column(db.String(30), unique=True, primary_key=True)
+    userid = db.Column(db.String(30), unique=True, primary_key=True)
     token = db.Column(db.String(300), nullable=False)
     token_expiresAt = db.Column(db.Integer, nullable=False)
     refresh_token = db.Column(db.String(300), nullable=False)
-    cache = db.Column(db.String(32), nullable=False)
-
+    
     def __repr__(self):
-        username = '{username: %r}' % self.username
+        userid = '{userid: %r}' % self.userid
         token = '{token: %r}' % self.token
         token_expiresAt = '{token_expiresAt: %r}' % self.token_expiresAt
         refresh_token = '{refresh_token: %r}' % self.refresh_token
-        data = '[' + username + ',' + token + ',' + token_expiresAt + ',' + refresh_token + ']'
+        data = '[' + userid + ',' + token + ',' + token_expiresAt + ',' + refresh_token + ']'
         return data
 
 
 @app.route('/') 
 def index():    
-    sp_oauth_global = create_spotify_oauth(config.cache)
+    sp_oauth_global = create_spotify_oauth(config.global_cache)
     auth_url = sp_oauth_global.get_authorize_url()
     return render_template('index.html', link=auth_url)
 
@@ -91,27 +91,27 @@ def redirectPage():
     if not code:
         return render_template('redirect.html', call="ERROR")
 
-    cache_file = "".join(random.choices(string.ascii_letters + string.digits, k=32)) # use user id instead for better handling?
-    sp_oauth = create_spotify_oauth("cache/" + cache_file)
+    sp_oauth = create_spotify_oauth(config.tmp_cache)
     sp_oauth.get_access_token(code, as_dict=False)
     token_info = sp_oauth.get_cached_token()
     print(token_info)
 
     sp = spotipy.Spotify(token_info['access_token'])
     current_user = sp.current_user()
-    user_name = current_user['display_name']
-    user = db.session.get(User,user_name) 
-    print(user_name)
+    user_id = current_user['id']
+    user = db.session.get(User,user_id) 
+    print(user_id)
 
     if user:
         return render_template('redirect.html', call="ALREADY_IN_DB")
 
     new_user = User(
-        username=user_name,
+        userid=user_id,
         token=token_info['access_token'],
         token_expiresAt=token_info['expires_at'],
-        refresh_token=token_info['refresh_token'],
-        cache=cache_file)
+        refresh_token=token_info['refresh_token'])
+    
+    os.remove(config.tmp_cache)
 
     try:
         db.session.add(new_user)
@@ -125,8 +125,8 @@ def redirectPage():
 @app.route('/unsub', methods=['POST','GET'])
 def unsub():
     if request.method == 'POST':
-        username = request.form['content']
-        user = db.session.get(User,username) 
+        userid = request.form['content']
+        user = db.session.get(User,userid) 
         if not user:
             return render_template('unsub.html',call="USER_NOT_FOUND")
         
@@ -143,7 +143,7 @@ def unsub():
 # to be removed before deployment
 @app.route('/showAll')
 def showAll():
-    users = User.query.order_by(User.username).all()
+    users = User.query.order_by(User.userid).all()
     generate_all()
     return render_template('showAll.html', users=users)
     
@@ -152,7 +152,7 @@ def generate_all():
     with app.app_context():
         year = datetime.utcnow().date().year
         month = datetime.utcnow().date().month
-        users = User.query.order_by(User.username).all()
+        users = User.query.order_by(User.userid).all()
         create_all(users,year,month)
 
 

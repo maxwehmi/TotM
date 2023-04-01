@@ -17,24 +17,24 @@ def create_playlist(sp, year, month_num):
     month_short = calendar.month_abbr[month_num]
 
     user = sp.current_user()
-    user_name = user['id']
+    user_id = user['id']
     name = "TotM - " + month_short + " " + str(year_short)
-    json_resp = sp.user_playlist_create(user_name, name, public=False, collaborative=False)
+    json_resp = sp.user_playlist_create(user_id, name, public=False, collaborative=False)
     playlist_id = json_resp['id']
     return playlist_id
 
 def add_description(sp, playlist_id, year, month_num):
     month = calendar.month_name[month_num]
     user = sp.current_user()
-    user_name = user['id']
+    user_id = user['id']
     description='These are your 20 Top of the Month tracks for ' + month + ' ' + str(year) + '!'
-    sp.user_playlist_change_details(user_name, playlist_id, description=description)
+    sp.user_playlist_change_details(user_id, playlist_id, description=description)
 
 
 def add_tracks(sp, playlist_id, tracks):
     user = sp.current_user()
-    user_name = user['display_name']
-    sp.user_playlist_add_tracks(user_name, playlist_id, tracks, position=None)
+    user_id = user['id']
+    sp.user_playlist_add_tracks(user_id, playlist_id, tracks, position=None)
 
 
 def create_TotM(sp, year, month_num):

@@ -5,12 +5,6 @@ body {
   font-family: 'Poppins'; 
   color:white; 
  }
-.text {
-  text-align:center;
-  align-items: center;
-  height: 50vh;
-  padding-bottom:0.67em
-}
 .container {
   display: flex;
   align-items: center;
@@ -23,14 +17,38 @@ body {
   width: auto;
   text-align: center;
 }
-.button {
+.linksBackground {
+  background-color:#206329; 
+  position: fixed; 
+  bottom: 0;
+  height: 1.5em;
+  width: 100vw;
+}
+.links {
+  color: #5e6771;
+  background-color:#206329; 
+  position: fixed; 
+  left: 50%; 
+  transform: translate(-50%,0%); 
+  font-size: 0.625em; 
+  color: #5e6771; 
+  bottom: 0.625em;
+}
+.link {
+  color: #5e6771;
+  text-decoration: none;
+}
+.link:hover {
+  color: white
+}
+.spotifyButton {
   color: white;
   border: 0.094em solid white;
   border-radius: 0.813em;
   padding: 0.4em;
   text-decoration: none;
 }
-.button:hover {
+.spotifyButton:hover {
   color: #48515B;
   background-color: white;
 }
@@ -44,22 +62,6 @@ body {
 }
 .github:hover {
   color: white;
-}
-.links {
-  color: #5e6771;
-  position: fixed; 
-  left: 50%; 
-  transform: translate(-50%,0%); 
-  font-size: 0.625em; 
-  color: #5e6771; 
-  bottom: 1.375em;
-}
-.link {
-  color: #5e6771;
-  text-decoration: none;
-}
-.link:hover {
-  color: white
 }
 .unsubField {
   width:70%;

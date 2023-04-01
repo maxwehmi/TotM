@@ -8,8 +8,9 @@ TotM Login
 
 {% block body %} 
 <h1>Your Top of the Month playlists</h1>
-<p>Creates a "Top of the Month" playlist at the end of every month. You can find the playlists in your Spotify profile. They all start with "TotM". </p>
+<p>Creates a "Top of the Month" playlist at the end of every month. You can find the playlists in your Spotify profile. They are called "TotM - 
+  MONTH YEAR", where MONTH and YEAR represent to which month the playlist belongs.  </p>
 <p>You can delete or edit the playlists in any way you want. The app will not interact with created playlists. But be careful: Once you deleted a 
   playlist, there is no way to get it back!</p>
-<a class="button" href="{{link}}">Login to Spotify</a>
+<a class="spotifyButton" href="{{link}}">Login to Spotify</a>
 {% endblock %}

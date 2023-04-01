@@ -7,18 +7,18 @@ TotM Unsub
 
 
 {% block body %} 
-    <h1>Do you want to unsubscribe from TotM?</h1>
-    <p>Just enter your userid (what you log in with) here and we will remove it from our database:</p>
-    <div class="form">
-        <form action="/unsub" method="POST">
-            <input type="text" name="content" id="content" class="unsubField">
-            <input type="submit" value="Unsubscribe" class="unsubButton">
-        </form>
-    </div>
-    {% if call == "SUCC" %} 
-    <p style="color:rgb(0, 255, 0)">You succesfully unsubscribed!</p>
-    <p>You can additionally remove the access for the App in your Spotify account settings in the "Apps" tab.</p>
-    {% endif %}
-    {% if call == "USER_NOT_FOUND" %} <p style="color:red">The username you entered was not in the database.</p> {% endif %}
-    {% if call == "ERROR" %} <p style="color:red">Some error occured, please try again or inform the manager of the website.</p> {% endif %}
+<h1>Do you want to unsubscribe from TotM?</h1>
+<p>Just enter your userid (what you log in with) here and we will remove it from our database:</p>
+<div class="form">
+    <form action="/unsub" method="POST">
+        <input type="text" name="content" id="content" class="unsubField">
+        <input type="submit" value="Unsubscribe" class="unsubButton">
+    </form>
+</div>
+{% if call == "SUCC" %} 
+<p style="color:rgb(0, 255, 0)">You succesfully unsubscribed!</p>
+<p>You can additionally remove the access for the App in your Spotify account settings in the "Apps" tab.</p>
+{% endif %}
+{% if call == "USER_NOT_FOUND" %} <p style="color:red">The username you entered was not in the database.</p> {% endif %}
+{% if call == "ERROR" %} <p style="color:red">Some error occured, please try again or inform the manager of the website.</p> {% endif %}
 {% endblock %}

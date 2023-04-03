@@ -1,15 +1,15 @@
 import os
-import time
 import config
 import TotM
 import spotipy
+import logging
 from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth
 from threading import Timer
-import logging
 
+# app setup
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO, filename='TotM.log', filemode='w')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -21,6 +21,8 @@ with app.app_context():
 
 
 def create_spotify_oauth(cache):
+    """Creates a new SpotifyOAuth object with the required scope and cache as the cache path"""
+
     return SpotifyOAuth(
             client_id=config.client_id,
             client_secret=config.client_secret,
@@ -28,32 +30,28 @@ def create_spotify_oauth(cache):
             scope="playlist-modify-private,user-top-read",
             cache_path=cache)
 
-
+ 
 def create_all(users,year,month_num):
+    """Creats TotM playlists for all user in users. year and month_num describe the year and month to which the playlist belongs"""
+
     logging.info('Start generating all TotM playlists.')
     for user in users:
         logging.info('Start generating playlist for ' + user.userid + '.')
-
         sp_oauth = create_spotify_oauth(config.tmp_cache)
-        now = int(time.time())
-        expired = user.token_expiresAt - now < 60
+        logging.info('Trying to refresh access token...')
+        try:
+            token_info = sp_oauth.refresh_access_token(user.refresh_token)
 
-        if expired:
-            logging.info('Acces token was expired, trying to refresh access token...')
-            try:
-                token_info = sp_oauth.refresh_access_token(user.refresh_token)
+            logging.info('Got new access token, trying to add it to the database...')
 
-                logging.info('Got new access token, trying to add it to the database...')
+            user.token=token_info['access_token']
+            user.token_expiresAt=token_info['expires_at']
+            user.refresh_token=token_info['refresh_token']
+            db.session.commit()
 
-                user.token=token_info['access_token']
-                user.token_expiresAt=token_info['expires_at']
-                user.refresh_token=token_info['refresh_token']
-
-                db.session.commit()
-
-                logging.info('Successfully added the new token to the database.')
-            except:
-                logging.error('Something went wrong while trying to get the new access token.')
+            logging.info('Successfully added the new token to the database.')
+        except:
+            logging.error('Something went wrong while trying to get the new access token.')
 
         try:
             logging.info('Generating playlist...')
@@ -70,18 +68,15 @@ def create_all(users,year,month_num):
 
 
 class User(db.Model):
+    """To save the users which are subscribed to TotM"""
+
     userid = db.Column(db.String(30), unique=True, primary_key=True)
     token = db.Column(db.String(300), nullable=False)
     token_expiresAt = db.Column(db.Integer, nullable=False)
     refresh_token = db.Column(db.String(300), nullable=False)
     
     def __repr__(self):
-        userid = '{userid: %r}' % self.userid
-        token = '{token: %r}' % self.token
-        token_expiresAt = '{token_expiresAt: %r}' % self.token_expiresAt
-        refresh_token = '{refresh_token: %r}' % self.refresh_token
-        data = '[' + userid + ',' + token + ',' + token_expiresAt + ',' + refresh_token + ']'
-        return data
+        return '<User: %r>' % self.userid
 
 
 @app.route('/') 
@@ -98,6 +93,7 @@ def imprint():
 
 @app.route('/redirect')
 def redirectPage():
+    # If the user approved, the access code will be contained in the URL
     code = request.args.get('code')
 
     if not code:
@@ -106,13 +102,14 @@ def redirectPage():
     
     logging.info('Code found in URL, trying to process it...')
 
+    # Tries to generate the token info from the acces code
     sp_oauth = create_spotify_oauth(config.tmp_cache)
     sp_oauth.get_access_token(code, as_dict=False)
     token_info = sp_oauth.get_cached_token()
+    os.remove(config.tmp_cache)
 
     sp = spotipy.Spotify(token_info['access_token'])
-    current_user = sp.current_user()
-    user_id = current_user['id']
+    user_id = sp.current_user()['id']
     user = db.session.get(User,user_id) 
 
     logging.info('Got the token for ' + user_id + '. Checking if user is already in the database...')
@@ -128,8 +125,6 @@ def redirectPage():
         token=token_info['access_token'],
         token_expiresAt=token_info['expires_at'],
         refresh_token=token_info['refresh_token'])
-    
-    os.remove(config.tmp_cache)
 
     try:
         db.session.add(new_user)
@@ -145,6 +140,7 @@ def redirectPage():
 @app.route('/unsub', methods=['POST','GET'])
 def unsub():
     if request.method == 'POST':
+        # If the user clicks the unsubscribe button, he invokes the POST method
         userid = request.form['content']
         user = db.session.get(User,userid) 
 
@@ -177,6 +173,8 @@ def showAll():
     
 
 def generate_all():
+    """Generates TotM playlists for all users for the current month.
+    This is basically a handler for the create_all method."""
     with app.app_context():
         year = datetime.utcnow().date().year
         month = datetime.utcnow().date().month

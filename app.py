@@ -64,7 +64,7 @@ def create_all(users,year,month_num):
         if os.path.isfile(config.tmp_cache):
             os.remove(config.tmp_cache)
 
-    logging.info('finished generating all TotM playlists')
+    logging.info('Finished generating all TotM playlists')
 
 
 class User(db.Model):
@@ -104,12 +104,24 @@ def redirectPage():
 
     # Tries to generate the token info from the acces code
     sp_oauth = create_spotify_oauth(config.tmp_cache)
-    sp_oauth.get_access_token(code, as_dict=False)
-    token_info = sp_oauth.get_cached_token()
-    os.remove(config.tmp_cache)
 
-    sp = spotipy.Spotify(token_info['access_token'])
-    user_id = sp.current_user()['id']
+    try:
+        sp_oauth.get_access_token(code, as_dict=False)
+    except:
+        logging.error('Could not process code.')
+        return render_template('redirect.html', call="ERROR")
+
+    token_info = sp_oauth.get_cached_token()
+    if os.path.isfile(config.tmp_cache):
+        os.remove(config.tmp_cache)
+
+    try: 
+        sp = spotipy.Spotify(token_info['access_token'])
+        user_id = sp.current_user()['id']
+    except: 
+        logging.error('Could not retreive token_info. User is probably not registered as a tester.')
+        return render_template('redirect.html', call="ERROR")
+
     user = db.session.get(User,user_id) 
 
     logging.info('Got the token for ' + user_id + '. Checking if user is already in the database...')
@@ -164,14 +176,6 @@ def unsub():
         return render_template('unsub.html')
     
 
-# to be removed before deployment
-@app.route('/showAll')
-def showAll():
-    users = User.query.order_by(User.userid).all()
-    #generate_all()
-    return render_template('showAll.html', users=users)
-    
-
 def generate_all():
     """Generates TotM playlists for all users for the current month.
     This is basically a handler for the create_all method."""
@@ -184,20 +188,16 @@ def generate_all():
 
 if __name__ == "__main__":
     # dates are currently hardcoded, this will be solved in a future version with multiple threads
-    """
     now = datetime.now()
 
     end_of_april = datetime(2023, 4, 30, 23, 0, 0, 0)
     delay_april = (end_of_april - now).total_seconds()
-    print(delay_april)
     t = Timer(delay_april, generate_all)
     t.start()
 
     end_of_may = datetime(2023, 5, 31, 23, 0, 0, 0)
     delay_may = (end_of_may - now).total_seconds()
-    print(delay_may)
     t2 = Timer(delay_may, generate_all)
     t2.start()
-    """
 
-    app.run(debug=True, port=4000) # debug must be False for Timer to work properly
+    app.run(debug=False, port=4000) # debug must be False for Timer to work properly

@@ -1,5 +1,4 @@
 import os
-import config
 import TotM
 import spotipy
 import logging
@@ -13,7 +12,11 @@ from threading import Timer
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO, filename='TotM.log', filemode='w')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.secret_key = config.secret_Key
+app.secret_key = os.environ['SECRET_KEY']
+CLIENT_ID = os.environ['CLIENT_ID']
+CLIENT_SECRET = os.environ['CLIENT_SECRET']
+TMP_CACHE = os.environ['TMP_CACHE']
+GLOBAL_CACHE = os.environ['GLOBAL_CACHE']
 db = SQLAlchemy()
 db.init_app(app)
 with app.app_context():
@@ -24,8 +27,8 @@ def create_spotify_oauth(cache):
     """Creates a new SpotifyOAuth object with the required scope and cache as the cache path"""
 
     return SpotifyOAuth(
-            client_id=config.client_id,
-            client_secret=config.client_secret,
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
             redirect_uri=url_for('redirectPage', _external=True),
             scope="playlist-modify-private,user-top-read",
             cache_path=cache)
@@ -37,7 +40,7 @@ def create_all(users,year,month_num):
     logging.info('Start generating all TotM playlists.')
     for user in users:
         logging.info('Start generating playlist for ' + user.userid + '.')
-        sp_oauth = create_spotify_oauth(config.tmp_cache)
+        sp_oauth = create_spotify_oauth(TMP_CACHE)
         logging.info('Trying to refresh access token...')
         try:
             token_info = sp_oauth.refresh_access_token(user.refresh_token)
@@ -61,8 +64,8 @@ def create_all(users,year,month_num):
         except:
             logging.error('Something went wrong while creating the playlist')
 
-        if os.path.isfile(config.tmp_cache):
-            os.remove(config.tmp_cache)
+        if os.path.isfile(TMP_CACHE):
+            os.remove(TMP_CACHE)
 
     logging.info('Finished generating all TotM playlists')
 
@@ -81,7 +84,7 @@ class User(db.Model):
 
 @app.route('/') 
 def index():    
-    sp_oauth_global = create_spotify_oauth(config.global_cache)
+    sp_oauth_global = create_spotify_oauth(GLOBAL_CACHE)
     auth_url = sp_oauth_global.get_authorize_url()
     return render_template('index.html', link=auth_url)
 
@@ -103,7 +106,7 @@ def redirectPage():
     logging.info('Code found in URL, trying to process it...')
 
     # Tries to generate the token info from the acces code
-    sp_oauth = create_spotify_oauth(config.tmp_cache)
+    sp_oauth = create_spotify_oauth(TMP_CACHE)
 
     try:
         sp_oauth.get_access_token(code, as_dict=False)
@@ -112,8 +115,8 @@ def redirectPage():
         return render_template('redirect.html', call="ERROR")
 
     token_info = sp_oauth.get_cached_token()
-    if os.path.isfile(config.tmp_cache):
-        os.remove(config.tmp_cache)
+    if os.path.isfile(TMP_CACHE):
+        os.remove(TMP_CACHE)
 
     try: 
         sp = spotipy.Spotify(token_info['access_token'])
@@ -199,5 +202,9 @@ if __name__ == "__main__":
     delay_may = (end_of_may - now).total_seconds()
     t2 = Timer(delay_may, generate_all)
     t2.start()
+
+    # for testing
+    t3 = Timer(300, generate_all)
+    t3.start()
 
     app.run(debug=False, port=4000) # debug must be False for Timer to work properly

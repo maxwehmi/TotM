@@ -13,7 +13,7 @@ from threading import Timer
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG, filename='TotM-App.log', filemode='a')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SERVER_NAME'] = 'totm.berlin'
+#app.config['SERVER_NAME'] = 'totm.berlin'
 app.secret_key = config.secret_Key
 db = SQLAlchemy()
 db.init_app(app)
@@ -28,7 +28,7 @@ def create_spotify_oauth(cache):
             client_id=config.client_id,
             client_secret=config.client_secret,
             redirect_uri=url_for('redirectPage', _external=True),
-            scope="playlist-modify-private,user-top-read",
+            scope="playlist-modify-private,user-top-read,user-read-recently-played",
             cache_path=cache)
 
  
@@ -141,6 +141,8 @@ def redirectPage():
         userid=user_id,
         token=token_info['access_token'],
         refresh_token=token_info['refresh_token'])
+    
+    app.logger.debug('token: ' + token_info['access_token'])
 
     try:
         db.session.add(new_user)
@@ -148,7 +150,7 @@ def redirectPage():
         app.logger.info('Successfully added new user to database.')
         return render_template('redirect.html', call="SUCC")
     except:
-        app.logger.info('There was an error adding the user to the database.')
+        app.logger.warning('There was an error adding the user to the database.')
         return render_template('redirect.html', call="ERROR")
     
 
@@ -182,6 +184,15 @@ def unsub():
         return render_template('unsub.html')
     
 
+
+@app.route('/test')
+def test():
+    access_token = ''
+    sp = spotipy.Spotify(access_token)
+    TotM.new_tracks_recent(sp,0)
+    return 'testing...'
+    
+
 def generate_all():
     """Generates TotM playlists for all users for the current month.
     This is basically a handler for the create_all method."""
@@ -210,8 +221,8 @@ def timers():
 
 
 if __name__ == "__main__":
-    timers()
-    app.run(debug=False, port=4000) # debug must be False for Timer to work properly
+    #timers()
+    app.run(debug=True, port=4000, host='127.0.0.1') # debug must be False for Timer to work properly
 
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger('gunicorn.error')

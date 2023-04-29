@@ -7,7 +7,7 @@ def get_tracks(sp):
     return response
 
 
-def extract_uris(json_file):
+def extract_uris_from_top(json_file):
     """Extracts the Song URIs from the passed json file. Expects the format to be the one as specified on the Spotify documentation.
     Returns a list containing the URIs."""
     uris = []
@@ -45,7 +45,70 @@ def add_tracks(sp, playlist_id, tracks):
 def create_TotM(sp, year, month_num):
     """Creats the TotM playlist for the user, to which the sp object belongs and the month specified by year and month_num."""
     resp = get_tracks(sp)
-    uris = extract_uris(resp)
+    uris = extract_uris_from_top(resp)
     playlist_id = create_playlist(sp, year, month_num)
     add_description(sp, playlist_id, year, month_num)
     add_tracks(sp, playlist_id, uris)
+
+
+def get_latest_tracks(sp, timeStamp):
+    resp = sp.current_user_recently_played(after=timeStamp)
+    return resp
+
+
+def extract_uris_from_recent(json_file):
+    uris = []
+    for track in json_file['items']:
+        uris.append(track['track']['uri'])
+    return uris
+
+
+def save_tracks(filename, tracks):
+    file = open("instance/"+filename, "a")
+    for track in tracks:
+        file.write(track + "\n")
+    file.close()
+
+
+def new_tracks_recent(sp, timeStamp):
+    resp = get_latest_tracks(sp,timeStamp)
+    uris = extract_uris_from_recent(resp) 
+    user_id = sp.current_user()['id']
+    save_tracks(user_id,uris)
+
+
+def read_tracks(filename):
+    tracks = []
+    with open("instance/"+filename) as file:
+        while line := file.readline():
+            tracks.append(line.rstrip())
+    return tracks
+
+
+def rank(list):
+    counted = []
+    count = []
+    for item in list:
+        if item in counted:
+            index = counted.index(item)
+            count[index] += 1
+        else:
+            counted.append(item)
+            count.append(1)
+    count, counted = zip(*sorted(zip(count, counted)))
+    ranked_list = []
+    for item in counted:
+        ranked_list.append(item)
+    return ranked_list
+
+
+def create_TotM_recent(sp, year, month_num):
+    user_id = sp.current_user()['id']
+    tracks = read_tracks(user_id)
+    ranked_tracks = rank(tracks)
+    ranked_tracks.reverse()
+    if len(ranked_tracks) > 20:
+        ranked_tracks = ranked_tracks[0:20]
+    playlist_id = create_playlist(sp, year, month_num)
+    add_description(sp, playlist_id, year, month_num)
+    add_tracks(sp, playlist_id, ranked_tracks)

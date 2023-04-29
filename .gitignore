@@ -4,3 +4,4 @@ instance/
 config.py
 .cache
 TotM.log
+TotM-App.log

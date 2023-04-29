@@ -10,6 +10,7 @@ from spotipy.oauth2 import SpotifyOAuth
 from threading import Timer
 
 # app setup
+TIME_DELTA = 5400000 # 1.5h*60min/h*60s/min*1000ms/s
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG, filename='TotM-App.log', filemode='a')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -218,6 +219,38 @@ def timers():
     t2 = Timer(delay_may, generate_all)
     t2.start()
     app.logger.info('Started timer for end of may. It will go of in ' + str(delay_may) + 's.')
+
+
+def check(sp, timestamp, endOfMonth):
+    user_id = sp.current_user()['id']
+    app.logger.info('Checking for user ' + user_id)
+    if os.path.isfile("instance/"+user_id):
+        app.logger.info('File exists, trying to save new songs to it...')
+        try:
+            TotM.new_tracks_recent(sp,timestamp)
+            app.logger.info('Done!')
+        except:
+            app.logger.warning('Could not retreive new Songs.')
+    if endOfMonth:
+        app.logger.info('End of month reached, creating playlist...')
+        year = datetime.utcnow().date().year
+        month = datetime.utcnow().date().month
+        if os.path.isfile("instance/"+user_id):
+            app.logger.info('File exists, trying to generate playlist from the contents...')
+            try:
+                TotM.create_TotM_recent(sp,year,month)
+                os.remove("instance/"+user_id)
+                app.logger.info('Successfully created playlist.')
+            except:
+                app.logger.warning('Could not create playlist.')
+        else:
+            app.logger.info('File not available, generating playlist the old way.')
+            try:
+                TotM.create_TotM(sp,year,month)
+                app.logger.info('Successfully created playlist.')
+            except:
+                app.logger.warning('Could not create playlist.')
+        open("instance/"+user_id, 'a').close()
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import config
 import TotM
 import spotipy
 import logging
+import time
 from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -10,7 +11,7 @@ from spotipy.oauth2 import SpotifyOAuth
 from threading import Timer
 
 # app setup
-TIME_DELTA = 5400000 # 1.5h*60min/h*60s/min*1000ms/s
+TIME_DELTA = 5400 # 1.5h*60min/h*60s/min
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG, filename='TotM-App.log', filemode='a')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -74,6 +75,7 @@ class User(db.Model):
     userid = db.Column(db.String(30), unique=True, primary_key=True)
     token = db.Column(db.String(300), nullable=False)
     refresh_token = db.Column(db.String(300), nullable=False)
+    timestamp = db.Column(db.Integer, nullable=False)
     
     def __repr__(self):
         return '<User: %r>' % self.userid
@@ -141,7 +143,8 @@ def redirectPage():
     new_user = User(
         userid=user_id,
         token=token_info['access_token'],
-        refresh_token=token_info['refresh_token'])
+        refresh_token=token_info['refresh_token'],
+        timestamp=time.time())
     
     app.logger.debug('token: ' + token_info['access_token'])
 
@@ -251,6 +254,62 @@ def check(sp, timestamp, endOfMonth):
             except:
                 app.logger.warning('Could not create playlist.')
         open("instance/"+user_id, 'a').close()
+
+
+def checkEndOfMonth(month,day,hour):
+    if not hour in [22,23]:
+        return False
+    
+    if month in [1,3,5,7,8,10,12]:
+        if not day == 31:
+            return False
+    elif month in [4,6,9,11]:
+        if not day == 30:
+            return False
+    else: # then its feburary
+        if not day == 28:
+            return False
+
+    return True
+
+
+def check_Thread():
+    while True:
+        month = datetime.utcnow().date().month
+        day = datetime.utcnow().date().day
+        hour = datetime.utcnow().time().hour
+        endOfMonth = checkEndOfMonth(month,day,hour)
+        with app.app_context():
+            users = User.query.order_by(User.userid).all()
+            for user in users:
+                sp_oauth = create_spotify_oauth(config.tmp_cache)
+                try:
+                    token_info = sp_oauth.refresh_access_token(user.refresh_token)
+                    user.token=token_info['access_token']
+                    user.refresh_token=token_info['refresh_token']
+                    db.session.commit()
+                except:
+                    print("ERROR")
+                
+                timestamp = user.timestamp
+                try:
+                    sp = spotipy.Spotify(user.token)
+                    check(sp,timestamp,endOfMonth)
+                except:
+                    print("ERROR")
+
+                if os.path.isfile(config.tmp_cache):
+                    os.remove(config.tmp_cache)
+
+                new_timestamp = time.time()
+
+                try:
+                    user.timestamp=new_timestamp
+                    db.session.commit()
+                except:
+                    print("ERROR")
+                
+        time.sleep(TIME_DELTA)
 
 
 if __name__ == "__main__":

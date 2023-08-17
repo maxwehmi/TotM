@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth
-from threading import Timer
+from threading import Timer, Thread
 
 # app setup
 TIME_DELTA = 5400 # 1.5h*60min/h*60s/min
@@ -274,6 +274,7 @@ def checkEndOfMonth(month,day,hour):
 
 
 def check_Thread():
+    app.logger.info('Started check thread')
     while True:
         month = datetime.utcnow().date().month
         day = datetime.utcnow().date().day
@@ -314,6 +315,9 @@ def check_Thread():
 
 if __name__ == "__main__":
     #timers()
+    thread = Thread(target = check_Thread)
+    thread.start()
+    
     app.run(debug=True, port=4000, host='127.0.0.1') # debug must be False for Timer to work properly
 
 if __name__ != '__main__':

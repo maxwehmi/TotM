@@ -52,7 +52,7 @@ def create_TotM(sp, year, month_num):
 
 
 def get_latest_tracks(sp, timeStamp):
-    resp = sp.current_user_recently_played(after=timeStamp)
+    resp = sp.current_user_recently_played(after=int(timeStamp*1000))
     return resp
 
 
@@ -104,11 +104,12 @@ def rank(list):
 
 def create_TotM_recent(sp, year, month_num):
     user_id = sp.current_user()['id']
-    tracks = read_tracks(user_id)
-    ranked_tracks = rank(tracks)
-    ranked_tracks.reverse()
-    if len(ranked_tracks) > 20:
-        ranked_tracks = ranked_tracks[0:20]
     playlist_id = create_playlist(sp, year, month_num)
     add_description(sp, playlist_id, year, month_num)
-    add_tracks(sp, playlist_id, ranked_tracks)    
+    tracks = read_tracks(user_id)
+    if len(tracks) > 0:
+        ranked_tracks = rank(tracks)
+        ranked_tracks.reverse()
+        if len(ranked_tracks) > 20:
+            ranked_tracks = ranked_tracks[0:20]
+        add_tracks(sp, playlist_id, ranked_tracks)

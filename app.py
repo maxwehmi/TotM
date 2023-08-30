@@ -11,7 +11,7 @@ from spotipy.oauth2 import SpotifyOAuth
 from threading import Timer, Thread
 
 # app setup
-TIME_DELTA = 5400 # 1.5h*60min/h*60s/min
+TIME_DELTA = 7200 # 2h*60min/h*60s/min
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG, filename='TotM-App.log', filemode='a')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -29,7 +29,7 @@ def create_spotify_oauth(cache):
     return SpotifyOAuth(
             client_id=config.client_id,
             client_secret=config.client_secret,
-            redirect_uri=url_for('redirectPage', _external=True),
+            redirect_uri=url_for('redirect', _external=True),
             scope="playlist-modify-private,user-top-read,user-read-recently-played",
             cache_path=cache)
 
@@ -98,7 +98,7 @@ def imprint():
 
 
 @app.route('/redirect')
-def redirectPage():
+def redirect():
     ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
     app.logger.debug(ip + ' accessed the redirect.')
     # If the user approved, the access code will be contained in the URL
@@ -180,6 +180,10 @@ def unsub():
             db.session.delete(user)
             db.session.commit()
             app.logger.info('Successfully removed user from databse.')
+            app.logger.info('Trying to remove their file...')
+            if os.path.isfile("instance/"+userid):
+                os.remove("instance/"+userid)
+            app.logger.info('Successfully removed their file.')
             return render_template('unsub.html',call="SUCC")
         except:
             app.logger.info('There was an error removing the user from the database.')
@@ -191,9 +195,35 @@ def unsub():
 
 @app.route('/test')
 def test():
-    access_token = ''
-    sp = spotipy.Spotify(access_token)
-    TotM.new_tracks_recent(sp,0)
+    with app.app_context():
+        users = User.query.order_by(User.userid).all()
+        for user in users:
+            sp_oauth = create_spotify_oauth(config.tmp_cache)
+            try:
+                token_info = sp_oauth.refresh_access_token(user.refresh_token)
+                user.token=token_info['access_token']
+                user.refresh_token=token_info['refresh_token']
+                db.session.commit()
+            except:
+                print("ERROR")
+            
+            timestamp = user.timestamp
+            try:
+                sp = spotipy.Spotify(user.token)
+                check(sp,timestamp,True)
+            except:
+                print("ERROR")
+
+            if os.path.isfile(config.tmp_cache):
+                os.remove(config.tmp_cache)
+
+            new_timestamp = time.time()
+
+            try:
+                user.timestamp=new_timestamp
+                db.session.commit()
+            except:
+                print("ERROR")
     return 'testing...'
     
 

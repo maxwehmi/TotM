@@ -1,6 +1,8 @@
 import os
 import config
-import TotM
+import TotM_top as top
+import TotM_recent as recent
+import TotM_auxillary as aux
 import spotipy
 import logging
 import time
@@ -8,11 +10,11 @@ from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth
-from threading import Timer, Thread
+from threading import Thread
 
 # app setup
 TIME_DELTA = 7200 # 2h*60min/h*60s/min
-logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG, filename='TotM-App.log', filemode='a')
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO, filename='TotM-App.log', filemode='a')
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 #app.config['SERVER_NAME'] = 'totm.berlin'
@@ -33,41 +35,6 @@ def create_spotify_oauth(cache):
             scope="playlist-modify-private,user-top-read,user-read-recently-played",
             cache_path=cache)
 
- 
-def create_all(users,year,month_num):
-    """Creats TotM playlists for all user in users. year and month_num describe the year and month to which the playlist belongs"""
-
-    app.logger.info('Start generating all TotM playlists.')
-    for user in users:
-        app.logger.info('Start generating playlist for ' + user.userid + '.')
-        sp_oauth = create_spotify_oauth(config.tmp_cache)
-        app.logger.info('Trying to refresh access token...')
-        try:
-            token_info = sp_oauth.refresh_access_token(user.refresh_token)
-
-            app.logger.info('Got new access token, trying to add it to the database...')
-
-            user.token=token_info['access_token']
-            user.refresh_token=token_info['refresh_token']
-            db.session.commit()
-
-            app.logger.info('Successfully added the new token to the database.')
-        except:
-            app.logger.error('Something went wrong while trying to get the new access token.')
-
-        try:
-            app.logger.info('Generating playlist...')
-            sp = spotipy.Spotify(user.token)
-            TotM.create_TotM(sp, year, month_num)
-            app.logger.info('Done!')
-        except:
-            app.logger.error('Something went wrong while creating the playlist')
-
-        if os.path.isfile(config.tmp_cache):
-            os.remove(config.tmp_cache)
-
-    app.logger.info('Finished generating all TotM playlists')
-
 
 class User(db.Model):
     """To save the users which are subscribed to TotM"""
@@ -82,9 +49,7 @@ class User(db.Model):
 
 
 @app.route('/') 
-def index():    
-    ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
-    app.logger.debug(ip + ' accessed the website.')
+def index():
     sp_oauth_global = create_spotify_oauth(config.global_cache)
     auth_url = sp_oauth_global.get_authorize_url()
     return render_template('index.html', link=auth_url)
@@ -92,15 +57,11 @@ def index():
 
 @app.route('/imprint')
 def imprint():
-    ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
-    app.logger.debug(ip + ' accessed the imprint.')
     return render_template('imprint.html')
 
 
 @app.route('/redirect')
 def redirect():
-    ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
-    app.logger.debug(ip + ' accessed the redirect.')
     # If the user approved, the access code will be contained in the URL
     code = request.args.get('code')
 
@@ -145,8 +106,6 @@ def redirect():
         token=token_info['access_token'],
         refresh_token=token_info['refresh_token'],
         timestamp=time.time())
-    
-    app.logger.debug('token: ' + token_info['access_token'])
 
     try:
         db.session.add(new_user)
@@ -161,8 +120,6 @@ def redirect():
 
 @app.route('/unsub', methods=['POST','GET'])
 def unsub():
-    ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
-    app.logger.debug(ip + ' accessed the unsub.')
     if request.method == 'POST':
         # If the user clicks the unsubscribe button, he invokes the POST method
         userid = request.form['content']
@@ -190,80 +147,20 @@ def unsub():
             return render_template('unsub.html',call="ERROR")
     else:
         return render_template('unsub.html')
-    
-
-
-@app.route('/test')
-def test():
-    with app.app_context():
-        users = User.query.order_by(User.userid).all()
-        for user in users:
-            sp_oauth = create_spotify_oauth(config.tmp_cache)
-            try:
-                token_info = sp_oauth.refresh_access_token(user.refresh_token)
-                user.token=token_info['access_token']
-                user.refresh_token=token_info['refresh_token']
-                db.session.commit()
-            except:
-                print("ERROR")
-            
-            timestamp = user.timestamp
-            try:
-                sp = spotipy.Spotify(user.token)
-                check(sp,timestamp,True)
-            except:
-                print("ERROR")
-
-            if os.path.isfile(config.tmp_cache):
-                os.remove(config.tmp_cache)
-
-            new_timestamp = time.time()
-
-            try:
-                user.timestamp=new_timestamp
-                db.session.commit()
-            except:
-                print("ERROR")
-    return 'testing...'
-    
-
-def generate_all():
-    """Generates TotM playlists for all users for the current month.
-    This is basically a handler for the create_all method."""
-    with app.app_context():
-        year = datetime.utcnow().date().year
-        month = datetime.utcnow().date().month
-        users = User.query.order_by(User.userid).all()
-        create_all(users,year,month)
-
-
-def timers():
-    # dates are currently hardcoded, this will be solved in a future version with multiple threads
-    now = datetime.now()
-
-    end_of_april = datetime(2023, 4, 30, 23, 0, 0, 0)
-    delay_april = (end_of_april - now).total_seconds()
-    t = Timer(delay_april, generate_all)
-    t.start()
-    app.logger.info('Started timer for end of april. It will go of in ' + str(delay_april) + 's.')
-
-    end_of_may = datetime(2023, 5, 31, 23, 0, 0, 0)
-    delay_may = (end_of_may - now).total_seconds()
-    t2 = Timer(delay_may, generate_all)
-    t2.start()
-    app.logger.info('Started timer for end of may. It will go of in ' + str(delay_may) + 's.')
 
 
 def check(sp, timestamp, endOfMonth):
+    """Checks for the user, to which the sp object belongs, if they listened to songs recently. If it is the end of the month, it will create the TotM playlist."""
     user_id = sp.current_user()['id']
-    app.logger.info('Checking for user ' + user_id)
     if os.path.isfile("instance/"+user_id):
         app.logger.info('File exists, trying to save new songs to it...')
         try:
-            TotM.new_tracks_recent(sp,timestamp)
+            recent.new_tracks_recent(sp,timestamp)
             app.logger.info('Done!')
         except:
             app.logger.warning('Could not retreive new Songs.')
+    else:
+        app.logger.info('User is still in the first month.')
     if endOfMonth:
         app.logger.info('End of month reached, creating playlist...')
         year = datetime.utcnow().date().year
@@ -271,7 +168,7 @@ def check(sp, timestamp, endOfMonth):
         if os.path.isfile("instance/"+user_id):
             app.logger.info('File exists, trying to generate playlist from the contents...')
             try:
-                TotM.create_TotM_recent(sp,year,month)
+                recent.create_TotM_recent(sp,year,month)
                 os.remove("instance/"+user_id)
                 app.logger.info('Successfully created playlist.')
             except:
@@ -279,72 +176,69 @@ def check(sp, timestamp, endOfMonth):
         else:
             app.logger.info('File not available, generating playlist the old way.')
             try:
-                TotM.create_TotM(sp,year,month)
+                top.create_TotM_top(sp,year,month)
                 app.logger.info('Successfully created playlist.')
             except:
                 app.logger.warning('Could not create playlist.')
         open("instance/"+user_id, 'a').close()
 
 
-def checkEndOfMonth(month,day,hour):
-    if not hour in [22,23]:
-        return False
-    
-    if month in [1,3,5,7,8,10,12]:
-        if not day == 31:
-            return False
-    elif month in [4,6,9,11]:
-        if not day == 30:
-            return False
-    else: # then its feburary
-        if not day == 28:
-            return False
-
-    return True
-
-
 def check_Thread():
+    """Controls the thread, which checks for new songs and creates the playlists."""
+    # TODO: comments and logging
     app.logger.info('Started check thread')
     while True:
+        app.logger.info('Starting next check')
         month = datetime.utcnow().date().month
         day = datetime.utcnow().date().day
         hour = datetime.utcnow().time().hour
-        endOfMonth = checkEndOfMonth(month,day,hour)
+        app.logger.info('Currently it is the ' + day + '.' + month + '. at ' + hour + 'h.')
+        endOfMonth = aux.checkEndOfMonth(month,day,hour)
+        app.logger.info('EndOfMonth is ' + str(endOfMonth))
         with app.app_context():
             users = User.query.order_by(User.userid).all()
             for user in users:
+                user_id = user.userid
+                app.logger.info('Checking for user ' + user_id)
                 sp_oauth = create_spotify_oauth(config.tmp_cache)
+
+                app.logger.info('Trying to refresh token...')
                 try:
                     token_info = sp_oauth.refresh_access_token(user.refresh_token)
                     user.token=token_info['access_token']
                     user.refresh_token=token_info['refresh_token']
                     db.session.commit()
+                    app.logger.info('Successfully got new token.')
                 except:
-                    print("ERROR")
+                    app.logger.error('Could not retreive new token.')
                 
                 timestamp = user.timestamp
+                app.logger.info('Checking for new songs.')
                 try:
                     sp = spotipy.Spotify(user.token)
                     check(sp,timestamp,endOfMonth)
                 except:
-                    print("ERROR")
+                    app.logger.error('Something went wrong while retreiving the new songs.')
 
                 if os.path.isfile(config.tmp_cache):
                     os.remove(config.tmp_cache)
 
                 new_timestamp = time.time()
 
+                app.logger.info('Trying to save new timestamp...')
                 try:
                     user.timestamp=new_timestamp
                     db.session.commit()
+                    app.logger.info('Successfully saved new timestamp.')
                 except:
-                    print("ERROR")
+                    app.logger.warning('Could not save new timestamp')
+
+                app.logger.info('Done with ' + user_id)
                 
         time.sleep(TIME_DELTA)
 
 
 if __name__ == "__main__":
-    #timers()
     thread = Thread(target = check_Thread)
     thread.start()
     

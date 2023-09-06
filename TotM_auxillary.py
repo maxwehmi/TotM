@@ -1,13 +1,13 @@
 import calendar
 
-def create_playlist(sp, year, month_num):
+def create_playlist(sp, year, month_num, suffix): # Remove suffix after testing
     """Creats the TotM playlist for the user, to which the sp object belongs for month specified by year and month_num.
     Returns the playlist_id for further handling."""
     year_short = year % 100
     month_short = calendar.month_abbr[month_num]
 
     user_id = sp.current_user()['id']
-    name = "TotM - " + month_short + " " + str(year_short)
+    name = "TotM - " + month_short + " " + str(year_short) + " " + suffix  # Remove suffix after testing
     json_resp = sp.user_playlist_create(user_id, name, public=False, collaborative=False)
     playlist_id = json_resp['id']
     return playlist_id

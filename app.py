@@ -173,6 +173,14 @@ def check(sp, timestamp, endOfMonth):
                 app.logger.info('Successfully created playlist.')
             except:
                 app.logger.warning('Could not create playlist.')
+            # Remove this later
+            app.logger.info('For testing purposes, the playlist is additionally generated the old way.')
+            try:
+                top.create_TotM_top(sp,year,month)
+                app.logger.info('Successfully created playlist.')
+            except:
+                app.logger.warning('Could not create playlist.')
+            # Remove until
         else:
             app.logger.info('File not available, generating playlist the old way.')
             try:
@@ -192,7 +200,7 @@ def check_Thread():
         month = datetime.utcnow().date().month
         day = datetime.utcnow().date().day
         hour = datetime.utcnow().time().hour
-        app.logger.info('Currently it is the ' + day + '.' + month + '. at ' + hour + 'h.')
+        app.logger.info('Currently it is the ' + str(day) + '.' + str(month) + '. at ' + str(hour) + 'h.')
         endOfMonth = aux.checkEndOfMonth(month,day,hour)
         app.logger.info('EndOfMonth is ' + str(endOfMonth))
         with app.app_context():
@@ -234,7 +242,8 @@ def check_Thread():
                     app.logger.warning('Could not save new timestamp')
 
                 app.logger.info('Done with ' + user_id)
-                
+        
+        app.logger.info('Done with this check.')
         time.sleep(TIME_DELTA)
 
 

@@ -64,7 +64,7 @@ def rank(list):
 def create_TotM_recent(sp, year, month_num):
     """Creats the TotM playlist the new way for the user, to which the sp object belongs and the month specified by year and month_num."""
     user_id = sp.current_user()['id']
-    playlist_id = aux.create_playlist(sp, year, month_num)
+    playlist_id = aux.create_playlist(sp, year, month_num, "A") # Remove suffix after testing
     aux.add_description(sp, playlist_id, year, month_num)
     tracks = read_tracks(user_id)
     if len(tracks) > 0:

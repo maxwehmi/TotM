@@ -1,7 +1,6 @@
 import os
 import config
 import TotM_top as top
-import TotM_recent as recent
 import TotM_auxillary as aux
 import spotipy
 import logging
@@ -149,59 +148,27 @@ def unsub():
         return render_template('unsub.html')
 
 
-def check(sp, timestamp, endOfMonth):
-    """Checks for the user, to which the sp object belongs, if they listened to songs recently. If it is the end of the month, it will create the TotM playlist."""
-    user_id = sp.current_user()['id']
-    if os.path.isfile("instance/"+user_id):
-        app.logger.info('File exists, trying to save new songs to it...')
-        try:
-            recent.new_tracks_recent(sp,timestamp)
-            app.logger.info('Done!')
-        except:
-            app.logger.warning('Could not retreive new Songs.')
-    else:
-        app.logger.info('User is still in the first month.')
+def create_TotM(sp, endOfMonth, user_id, year, month):
+    """If it is the end of the month, it will create the TotM playlist."""
     if endOfMonth:
-        app.logger.info('End of month reached, creating playlist...')
-        year = datetime.utcnow().date().year
-        month = datetime.utcnow().date().month
-        if os.path.isfile("instance/"+user_id):
-            app.logger.info('File exists, trying to generate playlist from the contents...')
-            try:
-                recent.create_TotM_recent(sp,year,month)
-                os.remove("instance/"+user_id)
-                app.logger.info('Successfully created playlist.')
-            except:
-                app.logger.warning('Could not create playlist.')
-            # Remove this later
-            app.logger.info('For testing purposes, the playlist is additionally generated the old way.')
-            try:
-                top.create_TotM_top(sp,year,month)
-                app.logger.info('Successfully created playlist.')
-            except:
-                app.logger.warning('Could not create playlist.')
-            # Remove until
-        else:
-            app.logger.info('File not available, generating playlist the old way.')
-            try:
-                top.create_TotM_top(sp,year,month)
-                app.logger.info('Successfully created playlist.')
-            except:
-                app.logger.warning('Could not create playlist.')
-        open("instance/"+user_id, 'a').close()
+        app.logger.info('Generating playlist for user ' + user_id)
+        try:
+            top.create_TotM_top(sp,year,month)
+            app.logger.info('Successfully created playlist.')
+        except:
+            app.logger.warning('Could not create playlist.')
 
 
 def check_Thread():
     """Controls the thread, which checks for new songs and creates the playlists."""
-    # TODO: comments and logging
     app.logger.info('Started check thread')
     while True:
         app.logger.info('Starting next check')
+        year = datetime.utcnow().date().year
         month = datetime.utcnow().date().month
         day = datetime.utcnow().date().day
-        hour = datetime.utcnow().time().hour
-        app.logger.info('Currently it is the ' + str(day) + '.' + str(month) + '. at ' + str(hour) + 'h.')
-        endOfMonth = aux.checkEndOfMonth(month,day,hour)
+        app.logger.info('Currently it is the ' + str(day) + '.' + str(month) + '.')
+        endOfMonth = aux.checkEndOfMonth(month,day)
         app.logger.info('EndOfMonth is ' + str(endOfMonth))
         with app.app_context():
             users = User.query.order_by(User.userid).all()
@@ -220,31 +187,24 @@ def check_Thread():
                 except:
                     app.logger.error('Could not retreive new token.')
                 
-                timestamp = user.timestamp
-                app.logger.info('Checking for new songs.')
                 try:
                     sp = spotipy.Spotify(user.token)
-                    check(sp,timestamp,endOfMonth)
+                    create_TotM(sp,endOfMonth,user_id,year,month)
                 except:
-                    app.logger.error('Something went wrong while retreiving the new songs.')
+                    app.logger.error('Something went wrong while creating the playlist.')
 
+                # remove the cache file
                 if os.path.isfile(config.tmp_cache):
                     os.remove(config.tmp_cache)
-
-                new_timestamp = time.time()
-
-                app.logger.info('Trying to save new timestamp...')
-                try:
-                    user.timestamp=new_timestamp
-                    db.session.commit()
-                    app.logger.info('Successfully saved new timestamp.')
-                except:
-                    app.logger.warning('Could not save new timestamp')
 
                 app.logger.info('Done with ' + user_id)
         
         app.logger.info('Done with this check.')
-        time.sleep(TIME_DELTA)
+
+        # sleep until the next day at 11 p.m.
+        now = datetime.datetime.today()
+        future = datetime.datetime(now.year,now.month,now.day,23,0) + datetime.timedelta(days=1)
+        time.sleep((future-now).total_seconds())
 
 
 if __name__ == "__main__":

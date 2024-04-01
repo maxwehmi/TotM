@@ -7,7 +7,7 @@ import logging
 import time
 from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 from spotipy.oauth2 import SpotifyOAuth
 from threading import Thread
 
@@ -202,8 +202,9 @@ def check_Thread():
         app.logger.info('Done with this check.')
 
         # sleep until the next day at 11 p.m.
-        now = datetime.datetime.today()
-        future = datetime.datetime(now.year,now.month,now.day,23,0) + datetime.timedelta(days=1)
+        now = datetime.now()
+        future = datetime(now.year,now.month,now.day,23,0) + timedelta(days=1)
+        app.logger.info('Sleeping for ' + str((future-now).total_seconds()) + 's.')
         time.sleep((future-now).total_seconds())
 
 

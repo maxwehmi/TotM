@@ -1,4 +1,5 @@
 import calendar
+from datetime import datetime
 
 def create_playlist(sp, year, month_num):
     """Creats the TotM playlist for the user, to which the sp object belongs for month specified by year and month_num.
@@ -27,18 +28,19 @@ def add_tracks(sp, playlist_id, tracks):
     sp.user_playlist_add_tracks(user_id, playlist_id, tracks, position=None)
 
 
-def checkEndOfMonth(month,day):
-    """Checks if the specified date ist the end of the month, i.e. the last day of the given month.
-    Returns true, if it is the end of the month and false otherwise."""
-    
+def lastDay(month):
+    """Returns the date of the last day of the month."""
     if month in [1,3,5,7,8,10,12]:
-        if not day == 31:
-            return False
+        return 31
     elif month in [4,6,9,11]:
-        if not day == 30:
-            return False
+        return 30
     else: # then its feburary
-        if not day == 28:
-            return False
+        return 28
 
-    return True
+
+def calculate_sleepTime(month, year):
+    """Calculates the time until the end of the given month in seconds."""
+    now = datetime.now()
+    last_day = lastDay(month)
+    future = datetime(year,month,last_day,23,0)
+    return (future-now).total_seconds()

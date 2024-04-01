@@ -7,7 +7,7 @@ import logging
 import time
 from flask import Flask, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from spotipy.oauth2 import SpotifyOAuth
 from threading import Thread
 
@@ -148,33 +148,27 @@ def unsub():
         return render_template('unsub.html')
 
 
-def create_TotM(sp, endOfMonth, user_id, year, month):
-    """If it is the end of the month, it will create the TotM playlist."""
-    if endOfMonth:
-        app.logger.info('Generating playlist for user ' + user_id)
-        try:
-            top.create_TotM_top(sp,year,month)
-            app.logger.info('Successfully created playlist.')
-        except:
-            app.logger.warning('Could not create playlist.')
-
-
 def check_Thread():
     """Controls the thread, which checks for new songs and creates the playlists."""
     app.logger.info('Started check thread')
+
+    # sleep until the end of this month at 11 p.m.
+    year = datetime.now(tz=timezone.utc).date().year
+    month = datetime.now(tz=timezone.utc).date().month
+    sleepSeconds = aux.calculate_sleepTime(month, year)
+    app.logger.info('Sleeping for ' + str(sleepSeconds) + 's.')
+    time.sleep(sleepSeconds)
+
     while True:
-        app.logger.info('Starting next check')
-        year = datetime.utcnow().date().year
-        month = datetime.utcnow().date().month
-        day = datetime.utcnow().date().day
-        app.logger.info('Currently it is the ' + str(day) + '.' + str(month) + '.')
-        endOfMonth = aux.checkEndOfMonth(month,day)
-        app.logger.info('EndOfMonth is ' + str(endOfMonth))
+        year = datetime.now(tz=timezone.utc).date().year
+        month = datetime.now(tz=timezone.utc).date().month
+
         with app.app_context():
+            app.logger.info('End of month reached. Creating next playlist.')
             users = User.query.order_by(User.userid).all()
             for user in users:
                 user_id = user.userid
-                app.logger.info('Checking for user ' + user_id)
+                app.logger.info('Current user: ' + user_id)
                 sp_oauth = create_spotify_oauth(config.tmp_cache)
 
                 app.logger.info('Trying to refresh token...')
@@ -188,8 +182,10 @@ def check_Thread():
                     app.logger.error('Could not retreive new token.')
                 
                 try:
+                    app.logger.info('Generating playlist for user ' + user_id)
                     sp = spotipy.Spotify(user.token)
-                    create_TotM(sp,endOfMonth,user_id,year,month)
+                    top.create_TotM_top(sp,year,month)
+                    app.logger.info('Successfully created playlist.')
                 except:
                     app.logger.error('Something went wrong while creating the playlist.')
 
@@ -201,11 +197,12 @@ def check_Thread():
         
         app.logger.info('Done with this check.')
 
-        # sleep until the next day at 11 p.m.
-        now = datetime.now()
-        future = datetime(now.year,now.month,now.day,23,0) + timedelta(days=1)
-        app.logger.info('Sleeping for ' + str((future-now).total_seconds()) + 's.')
-        time.sleep((future-now).total_seconds())
+        # sleep until the end of the next month at 11 p.m.
+        next_month = (month % 12) + 1
+        new_year = year + int(month / 12) # If the current month is 12, i.e. the last month of the year, the year has to be increased by one
+        sleepSeconds = aux.calculate_sleepTime(next_month, new_year)
+        app.logger.info('Sleeping for ' + str(sleepSeconds) + 's.')
+        time.sleep(sleepSeconds)
 
 
 if __name__ == "__main__":
